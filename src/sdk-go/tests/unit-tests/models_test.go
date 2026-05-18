@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/KristiyanIvanow/go-test-app/src/models"
-	"github.com/KristiyanIvanow/go-test-app/src/types"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/models"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/types"
 )
 
 func TestNewMqttConfigModelDefaults(t *testing.T) {

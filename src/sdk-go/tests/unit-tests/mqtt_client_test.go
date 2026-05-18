@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	sdkerrors "github.com/KristiyanIvanow/go-test-app/src/errors"
-	"github.com/KristiyanIvanow/go-test-app/src/models"
-	"github.com/KristiyanIvanow/go-test-app/src/mqttclient"
-	"github.com/KristiyanIvanow/go-test-app/src/types"
+	sdkerrors "github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/errors"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/models"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/mqttclient"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/types"
 )
 
 // ---------- Singleton ---------------------------------------------------

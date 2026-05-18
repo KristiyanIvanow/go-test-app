@@ -3,7 +3,7 @@ package unit_tests_test
 import (
 	"testing"
 
-	"github.com/KristiyanIvanow/go-test-app/src/logger"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/logger"
 )
 
 func TestDefaultLoggerImplementsInterface(t *testing.T) {

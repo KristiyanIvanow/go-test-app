@@ -1,6 +1,6 @@
 package models
 
-import "github.com/KristiyanIvanow/go-test-app/src/types"
+import "github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/types"
 
 // MqttMessage represents an MQTT message received or to be published.
 type MqttMessage struct {

@@ -3,7 +3,7 @@ package unit_tests_test
 import (
 	"testing"
 
-	"github.com/KristiyanIvanow/go-test-app/src/containerproperties"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/containerproperties"
 )
 
 func TestContainerPropertiesGetInstanceRejectsEmptyModuleID(t *testing.T) {

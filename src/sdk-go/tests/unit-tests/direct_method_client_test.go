@@ -3,7 +3,7 @@ package unit_tests_test
 import (
 	"testing"
 
-	"github.com/KristiyanIvanow/go-test-app/src/directmethod"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/directmethod"
 )
 
 func TestDirectMethodGetInstanceRejectsEmptyModuleID(t *testing.T) {

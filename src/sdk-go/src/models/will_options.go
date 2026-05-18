@@ -1,6 +1,6 @@
 package models
 
-import "github.com/KristiyanIvanow/go-test-app/src/types"
+import "github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/types"
 
 // WillOptions holds the MQTT "Last Will and Testament" options.
 type WillOptions struct {

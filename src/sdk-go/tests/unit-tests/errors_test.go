@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	sdkerrors "github.com/KristiyanIvanow/go-test-app/src/errors"
+	sdkerrors "github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/errors"
 )
 
 func TestErrorMessagesIncludeContext(t *testing.T) {

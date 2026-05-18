@@ -3,7 +3,7 @@ package unit_tests_test
 import (
 	"testing"
 
-	"github.com/KristiyanIvanow/go-test-app/src/types"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/types"
 )
 
 func TestEQoSValues(t *testing.T) {

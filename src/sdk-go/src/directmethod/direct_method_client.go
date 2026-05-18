@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/KristiyanIvanow/go-test-app/src/containerproperties"
-	"github.com/KristiyanIvanow/go-test-app/src/logger"
-	"github.com/KristiyanIvanow/go-test-app/src/models"
-	"github.com/KristiyanIvanow/go-test-app/src/mqttapi"
-	"github.com/KristiyanIvanow/go-test-app/src/mqttclient"
-	"github.com/KristiyanIvanow/go-test-app/src/types"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/containerproperties"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/logger"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/models"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/mqttapi"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/mqttclient"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/types"
 )
 
 // DirectMethodMessage is the payload received on the dm/{moduleId}/ topic.

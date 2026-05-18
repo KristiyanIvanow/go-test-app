@@ -20,9 +20,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/KristiyanIvanow/go-test-app/src/models"
-	"github.com/KristiyanIvanow/go-test-app/src/mqttclient"
-	"github.com/KristiyanIvanow/go-test-app/src/types"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/models"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/mqttclient"
+	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/types"
 )
 
 // testAPI prints every message the broker pushes to subscribed topics.
