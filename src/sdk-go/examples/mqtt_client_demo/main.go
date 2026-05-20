@@ -1,15 +1,3 @@
-// Integration test demo for the MQTT client. Connects to a real broker,
-// subscribes to a wildcard topic, publishes a few messages, runs a short
-// scan, and exits. Mirrors tests/integration-tests/MqttClient/Program.cs
-// from the .NET SDK.
-//
-// Run:
-//
-//   # against a broker on localhost:
-//   go run ./tests/integration-tests/mqtt_client
-//
-//   # or override the broker URI:
-//   MQTT_URI=mqtt://mosquitto:1883 go run ./tests/integration-tests/mqtt_client
 package main
 
 import (
@@ -25,15 +13,15 @@ import (
 	"github.com/KristiyanIvanow/go-test-app/src/sdk-go/src/types"
 )
 
-// testAPI prints every message the broker pushes to subscribed topics.
-type testAPI struct{}
+// mqttClientDemoAPI prints every message the broker pushes to subscribed topics.
+type mqttClientDemoAPI struct{}
 
-func (testAPI) HandleMessage(m *models.MqttMessage) {
+func (mqttClientDemoAPI) HandleMessage(message *models.MqttMessage) {
 	fmt.Println("=== Message Received ===")
-	fmt.Printf("Topic:    %s\n", m.Topic)
-	fmt.Printf("Payload:  %s\n", string(m.Payload))
-	fmt.Printf("QoS:      %d\n", m.QoS)
-	fmt.Printf("Retained: %v\n", m.Retained)
+	fmt.Printf("Topic:    %s\n", message.Topic)
+	fmt.Printf("Payload:  %s\n", string(message.Payload))
+	fmt.Printf("QoS:      %d\n", message.QoS)
+	fmt.Printf("Retained: %v\n", message.Retained)
 	fmt.Println("========================")
 }
 
@@ -43,17 +31,17 @@ func main() {
 		uri = "mqtt://127.0.0.1:1883"
 	}
 
-	cfg := models.NewMqttConfigModel()
-	cfg.ServerURIs = []string{uri}
-	cfg.MqttVersion = 4
-	cfg.ConnectTimeout = 30
-	cfg.KeepAliveInterval = 60
+	config := models.NewMqttConfigModel()
+	config.ServerURIs = []string{uri}
+	config.MqttVersion = 4
+	config.ConnectTimeout = 30
+	config.KeepAliveInterval = 60
 
 	client := mqttclient.GetInstance()
-	client.MyAPI = testAPI{}
+	client.MyAPI = mqttClientDemoAPI{}
 
 	log.Printf("Connecting to %s ...", uri)
-	if err := client.Init(cfg, "TestApp123"); err != nil {
+	if err := client.Init(config, "TestApp123"); err != nil {
 		log.Fatalf("failed to init MQTT client: %v", err)
 	}
 	defer client.DeInit()
@@ -79,9 +67,9 @@ func main() {
 	runTopicScan(client)
 
 	log.Print("Press Ctrl+C to exit ...")
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	<-sig
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	<-signals
 
 	log.Print("Cleaning up ...")
 	if err := client.DeleteSubscription("netfield/test/#"); err != nil {
@@ -96,16 +84,15 @@ func runTopicScan(client *mqttclient.MQTTManager) {
 		return
 	}
 
-	st := client.GetScanStatus()
+	status := client.GetScanStatus()
 	log.Printf("Scan status: %s, end at %s, topics: %v",
-		st.Status, st.ScanEndAt, st.ExploreTopics)
+		status.Status, status.ScanEndAt, status.ExploreTopics)
 
-	// Publish a few messages while the scan is running so we can see them.
-	for i := 0; i < 3; i++ {
+	for index := 0; index < 3; index++ {
 		time.Sleep(2 * time.Second)
 		_ = client.PublishMessage(
-			fmt.Sprintf("netfield/test/scan/message%d", i),
-			fmt.Sprintf("scan test %d", i),
+			fmt.Sprintf("netfield/test/scan/message%d", index),
+			fmt.Sprintf("scan test %d", index),
 			types.QoS0, false,
 		)
 	}
@@ -113,12 +100,12 @@ func runTopicScan(client *mqttclient.MQTTManager) {
 	log.Print("Waiting for scan to complete ...")
 	time.Sleep(65 * time.Second)
 
-	st = client.GetScanStatus()
-	log.Printf("Final scan status: %s", st.Status)
+	status = client.GetScanStatus()
+	log.Printf("Final scan status: %s", status.Status)
 
 	topics := client.GetReceivedTopicsList()
 	log.Printf("Discovered %d topics:", len(topics))
-	for _, t := range topics {
-		log.Printf("  - %s", t)
+	for _, topic := range topics {
+		log.Printf("  - %s", topic)
 	}
 }

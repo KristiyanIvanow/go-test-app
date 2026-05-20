@@ -21,7 +21,7 @@ type DesiredPropertiesHandler func(payload map[string]interface{})
 
 // ContainerPropertiesClient is a singleton client for container properties.
 type ContainerPropertiesClient struct {
-	moduleID                string
+	moduleID                 string
 	desiredPropertiesHandler DesiredPropertiesHandler
 	logger                   logger.ILogger
 	mqttClient               *mqttclient.MQTTManager

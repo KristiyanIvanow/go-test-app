@@ -5,11 +5,11 @@ MQTT broker**. Mirrors the `.NET` and Node integration tests.
 
 ## What's in here
 
-- `main.go` — runnable demo program (connects, subscribes, publishes,
-  starts a 1-minute topic scan, prints received messages until Ctrl+C).
-  Equivalent to the .NET `Program.cs`.
-- `main_test.go` — `go test` integration suite gated behind the
+- `mqtt_client_integration_test.go` — `go test` integration suite gated behind the
   `integration` build tag so it is skipped during normal `go test ./...`.
+- `../../examples/mqtt_client_demo/main.go` — runnable demo program
+  (connects, subscribes, publishes, starts a 1-minute topic scan,
+  prints received messages until Ctrl+C). Equivalent to the .NET `Program.cs`.
 
 ## Requirements
 
@@ -22,9 +22,9 @@ MQTT broker**. Mirrors the `.NET` and Node integration tests.
 
 ```bash
 cd packages/sdk-go
-go run ./tests/integration-tests/mqtt_client
+go run ./examples/mqtt_client_demo
 # or with a remote broker
-MQTT_URI=mqtt://mosquitto:1883 go run ./tests/integration-tests/mqtt_client
+MQTT_URI=mqtt://mosquitto:1883 go run ./examples/mqtt_client_demo
 ```
 
 You'll see a `Connection state` line, then any messages published to

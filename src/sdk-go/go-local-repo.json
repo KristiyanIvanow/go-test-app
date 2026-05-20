@@ -1,0 +1,8 @@
+{
+  "key": "hilscher-go-dev-local",
+  "rclass": "local",
+  "packageType": "go",
+  "description": "Go modules dev local repo for netfield-hub-sdk",
+  "includesPattern": "**/*",
+  "excludesPattern": ""
+}

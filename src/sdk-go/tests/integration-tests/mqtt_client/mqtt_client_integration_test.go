@@ -1,16 +1,16 @@
 //go:build integration
 
-// Integration test for MqttClient. Requires a running MQTT broker.
+// Integration tests for mqttclient. Requires a running MQTT broker.
 //
 // Run with:
 //
-//   go test -tags=integration ./tests/integration-tests/mqtt_client/...
+//	go test -tags=integration ./tests/integration-tests/mqtt_client/...
 //
 // Override the broker URI via env: MQTT_URI=mqtt://mosquitto:1883
 //
-// The test is automatically skipped when no broker is reachable so that
+// The tests are automatically skipped when no broker is reachable so that
 // CI without a sidecar mosquitto does not fail spuriously.
-package main
+package mqttclient_test
 
 import (
 	"fmt"
@@ -27,8 +27,8 @@ import (
 )
 
 func brokerURI() string {
-	if v := os.Getenv("MQTT_URI"); v != "" {
-		return v
+	if value := os.Getenv("MQTT_URI"); value != "" {
+		return value
 	}
 	return "mqtt://127.0.0.1:1883"
 }
@@ -38,11 +38,11 @@ func brokerURI() string {
 func skipIfBrokerUnreachable(t *testing.T) {
 	t.Helper()
 	uri := brokerURI()
-	u, err := url.Parse(uri)
+	parsed, err := url.Parse(uri)
 	if err != nil {
 		t.Fatalf("invalid broker URI %q: %v", uri, err)
 	}
-	host := u.Host
+	host := parsed.Host
 	if host == "" {
 		host = uri
 	}
@@ -58,10 +58,10 @@ type collectAPI struct {
 	messages []*models.MqttMessage
 }
 
-func (c *collectAPI) HandleMessage(m *models.MqttMessage) {
+func (c *collectAPI) HandleMessage(message *models.MqttMessage) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.messages = append(c.messages, m)
+	c.messages = append(c.messages, message)
 }
 
 func (c *collectAPI) count() int {
@@ -73,14 +73,14 @@ func (c *collectAPI) count() int {
 func TestIntegrationConnectPublishSubscribe(t *testing.T) {
 	skipIfBrokerUnreachable(t)
 
-	cfg := models.NewMqttConfigModel()
-	cfg.ServerURIs = []string{brokerURI()}
+	config := models.NewMqttConfigModel()
+	config.ServerURIs = []string{brokerURI()}
 
 	client := mqttclient.GetInstance()
 	api := &collectAPI{}
 	client.MyAPI = api
 
-	if err := client.Init(cfg, "GoItTest1"); err != nil {
+	if err := client.Init(config, "GoItTest1"); err != nil {
 		t.Fatalf("Init failed: %v", err)
 	}
 	t.Cleanup(client.DeInit)
@@ -100,7 +100,6 @@ func TestIntegrationConnectPublishSubscribe(t *testing.T) {
 		t.Fatalf("PublishMessage failed: %v", err)
 	}
 
-	// Wait up to 5s for the message to round-trip back to us.
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		if api.count() > 0 {
@@ -116,30 +115,27 @@ func TestIntegrationConnectPublishSubscribe(t *testing.T) {
 func TestIntegrationScanCollectsTopics(t *testing.T) {
 	skipIfBrokerUnreachable(t)
 
-	cfg := models.NewMqttConfigModel()
-	cfg.ServerURIs = []string{brokerURI()}
+	config := models.NewMqttConfigModel()
+	config.ServerURIs = []string{brokerURI()}
 
 	client := mqttclient.GetInstance()
-	if err := client.Init(cfg, "GoItScan1"); err != nil {
+	if err := client.Init(config, "GoItScan1"); err != nil {
 		t.Fatalf("Init failed: %v", err)
 	}
 	t.Cleanup(client.DeInit)
 
-	// Smallest allowed scan window is 1 minute, so we don't wait for the
-	// scan to complete; we only verify it starts and we can stop it.
 	if err := client.StartScan([]string{"netfield/it/scan/#"}, 1); err != nil {
 		t.Fatalf("StartScan failed: %v", err)
 	}
 
-	st := client.GetScanStatus()
-	if st.Status != types.ScanRunning {
-		t.Errorf("expected scan to be running, got %q", st.Status)
+	status := client.GetScanStatus()
+	if status.Status != types.ScanRunning {
+		t.Errorf("expected scan to be running, got %q", status.Status)
 	}
 
-	// Publish a few messages on the scanned wildcard.
-	for i := 0; i < 3; i++ {
+	for index := 0; index < 3; index++ {
 		_ = client.PublishMessage(
-			fmt.Sprintf("netfield/it/scan/m%d", i),
+			fmt.Sprintf("netfield/it/scan/m%d", index),
 			"x", types.QoS0, false,
 		)
 	}
@@ -147,8 +143,8 @@ func TestIntegrationScanCollectsTopics(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	client.StopScan()
 
-	st = client.GetScanStatus()
-	if st.Status != types.ScanIdle {
-		t.Errorf("expected scan to be idle after StopScan, got %q", st.Status)
+	status = client.GetScanStatus()
+	if status.Status != types.ScanIdle {
+		t.Errorf("expected scan to be idle after StopScan, got %q", status.Status)
 	}
 }
