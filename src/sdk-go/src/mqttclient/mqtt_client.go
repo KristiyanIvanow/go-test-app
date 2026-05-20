@@ -34,7 +34,7 @@ type MQTTManager struct {
 	DesiredPropertiesAPI mqttapi.MqttAPI
 	DirectMethodsAPI     mqttapi.MqttAPI
 
-	logger logger.ILogger
+	logger logger.Logger
 
 	containerID string
 	currentURI  string
@@ -67,7 +67,7 @@ var (
 func GetInstance() *MQTTManager {
 	instanceOnce.Do(func() {
 		instance = &MQTTManager{
-			logger:        logger.Default,
+			logger:        logger.New(),
 			subscriptions: make(map[string]*models.MqttSubscriptionModel),
 			connState:     models.NewMqttState(),
 			scanStatus:    types.ScanIdle,
@@ -78,12 +78,12 @@ func GetInstance() *MQTTManager {
 }
 
 // SetLogger replaces the SDK logger.
-func (m *MQTTManager) SetLogger(l logger.ILogger) {
+func (m *MQTTManager) SetLogger(l logger.Logger) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if l != nil {
-		m.logger = l
-	}
+	// if l != nil {
+	m.logger = l
+	// }
 }
 
 // Init initializes the MQTT client with the supplied config and container id.
@@ -94,8 +94,8 @@ func (m *MQTTManager) Init(config *models.MqttConfigModel, containerID string) e
 		return fmt.Errorf("MQTT config is nil")
 	}
 	if !types.ContainerIDPattern.MatchString(containerID) {
-		m.logger.Warning(fmt.Sprintf(
-			"The given containerId %q violates the MQTT containerID guidelines.", containerID))
+		m.logger.Warn().Msgf(
+			"The given containerId %q violates the MQTT containerID guidelines.", containerID)
 	}
 
 	m.mu.Lock()
@@ -124,7 +124,7 @@ func (m *MQTTManager) ReInit(config *models.MqttConfigModel, containerID string)
 	m.mu.Lock()
 	if m.reInitializing {
 		m.mu.Unlock()
-		m.logger.Warning("MQTT client is already re-initializing")
+		m.logger.Warn().Msg("MQTT client is already re-initializing")
 		return nil
 	}
 	m.reInitializing = true
@@ -181,7 +181,7 @@ func (m *MQTTManager) PublishMessage(topic, payload string, qos types.EQoS, reta
 	token := client.Publish(topic, byte(qos), retained, payload)
 	token.Wait()
 	if err := token.Error(); err != nil {
-		m.logger.Error(fmt.Sprintf("Error publishing message to %s: %v", topic, err))
+		m.logger.Error().Msgf("Error publishing message to %s: %v", topic, err)
 		return err
 	}
 	return nil
@@ -341,7 +341,7 @@ func (m *MQTTManager) connectToFirstAvailableBroker() error {
 		token := client.Connect()
 		token.Wait()
 		if err := token.Error(); err != nil {
-			m.logger.Error(fmt.Sprintf("Connection error with %s:%d: %v", host, port, err))
+			m.logger.Error().Msgf("Connection error with %s:%d: %v", host, port, err)
 			lastErr = err
 			continue
 		}
@@ -352,7 +352,7 @@ func (m *MQTTManager) connectToFirstAvailableBroker() error {
 		m.connState.Message = fmt.Sprintf("Connection to %s:%d established.", host, port)
 		m.mu.Unlock()
 
-		m.logger.Information(fmt.Sprintf("### MQTT Init complete (connected to %s:%d) ###", host, port))
+		m.logger.Info().Msgf("### MQTT Init complete (connected to %s:%d) ###", host, port)
 		return nil
 	}
 
@@ -424,7 +424,7 @@ func (m *MQTTManager) onConnect(_ mqtt.Client) {
 		token := client.Subscribe(topic, byte(sub.QoS), nil)
 		token.Wait()
 		if err := token.Error(); err != nil {
-			m.logger.Warning(fmt.Sprintf("Failed to restore subscription to %s: %v", topic, err))
+			m.logger.Warn().Msgf("Failed to restore subscription to %s: %v", topic, err)
 		}
 	}
 }
@@ -433,7 +433,7 @@ func (m *MQTTManager) onConnectionLost(_ mqtt.Client, err error) {
 	m.mu.Lock()
 	m.connState.ConnectionState = types.Disconnected
 	m.mu.Unlock()
-	m.logger.Warning(fmt.Sprintf("Connection lost: %v", err))
+	m.logger.Warn().Msgf("Connection lost: %v", err)
 }
 
 func (m *MQTTManager) onMessage(_ mqtt.Client, msg mqtt.Message) {
@@ -443,7 +443,7 @@ func (m *MQTTManager) onMessage(_ mqtt.Client, msg mqtt.Message) {
 		QoS:      types.EQoS(msg.Qos()),
 		Retained: msg.Retained(),
 	}
-	m.logger.Debug(fmt.Sprintf("Message received with topic: %s", mqttMessage.Topic))
+	m.logger.Debug().Msgf("Message received with topic: %s", mqttMessage.Topic)
 
 	m.mu.RLock()
 	desired := m.DesiredPropertiesAPI
@@ -459,7 +459,7 @@ func (m *MQTTManager) onMessage(_ mqtt.Client, msg mqtt.Message) {
 	case my != nil:
 		my.HandleMessage(mqttMessage)
 	default:
-		m.logger.Error("The MQTT API in MQTT Manager is not initialized!")
+		m.logger.Error().Msg("The MQTT API in MQTT Manager is not initialized!")
 	}
 }
 
@@ -483,19 +483,19 @@ func (m *MQTTManager) runScan(exploreTopics []string, scanDurationMinutes int, c
 
 	opts, err := m.buildClientOptions("tcp", uri, port, containerID+types.ScanClientIDSuffix)
 	if err != nil {
-		m.logger.Error(fmt.Sprintf("Scan client options error: %v", err))
+		m.logger.Error().Msgf("Scan client options error: %v", err)
 		return
 	}
 	opts.SetDefaultPublishHandler(func(_ mqtt.Client, msg mqtt.Message) {
 		m.mu.Lock()
 		m.receivedTopic[msg.Topic()] = struct{}{}
 		m.mu.Unlock()
-		m.logger.Debug(fmt.Sprintf("### Topic received: %s", msg.Topic()))
+		m.logger.Debug().Msgf("### Topic received: %s", msg.Topic())
 	})
 
 	scanClient := mqtt.NewClient(opts)
 	if token := scanClient.Connect(); token.WaitTimeout(10*time.Second) && token.Error() != nil {
-		m.logger.Error(fmt.Sprintf("Scan client connect error: %v", token.Error()))
+		m.logger.Error().Msgf("Scan client connect error: %v", token.Error())
 		return
 	}
 	m.mu.Lock()
@@ -506,7 +506,7 @@ func (m *MQTTManager) runScan(exploreTopics []string, scanDurationMinutes int, c
 		token := scanClient.Subscribe(t, 0, nil)
 		token.Wait()
 		if err := token.Error(); err != nil {
-			m.logger.Warning(fmt.Sprintf("Scan subscribe error on %s: %v", t, err))
+			m.logger.Warn().Msgf("Scan subscribe error on %s: %v", t, err)
 		}
 	}
 

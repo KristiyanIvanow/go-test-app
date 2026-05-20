@@ -8,33 +8,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Level is the SDK logger level abstraction used by examples and constructors.
-type Level int
-
-const (
-	Debug Level = iota
-	Information
-	Warning
-	Error
-)
-
-// Info is kept as an alias for callers that use the shorter name.
-const Info = Information
-
-// ILogger is the SDK logging interface used throughout the Go SDK.
-type ILogger interface {
-	Information(message string)
-	Warning(message string)
-	Error(message string)
-	Debug(message string)
-}
-
-// Default is the package-level logger used when no custom logger is supplied.
-var Default ILogger = NewConsoleLogger()
-
-type zeroLogger struct {
-	logger zerolog.Logger
-}
+type Logger = zerolog.Logger
 
 // New creates a zerolog.Logger configured from environment variables.
 //
@@ -46,33 +20,6 @@ func New() zerolog.Logger {
 
 	writer := buildWriter()
 	return zerolog.New(writer).With().Timestamp().Logger()
-}
-
-// NewConsoleLogger returns an ILogger backed by zerolog.
-//
-// When a level is provided, it overrides LOG_LEVEL for this logger instance.
-func NewConsoleLogger(levels ...Level) ILogger {
-	base := New()
-	if len(levels) > 0 {
-		base = base.Level(toZeroLevel(levels[0]))
-	}
-	return &zeroLogger{logger: base}
-}
-
-func (z *zeroLogger) Information(message string) {
-	z.logger.Info().Msg(message)
-}
-
-func (z *zeroLogger) Warning(message string) {
-	z.logger.Warn().Msg(message)
-}
-
-func (z *zeroLogger) Error(message string) {
-	z.logger.Error().Msg(message)
-}
-
-func (z *zeroLogger) Debug(message string) {
-	z.logger.Debug().Msg(message)
 }
 
 func parseLevel() zerolog.Level {
@@ -99,19 +46,4 @@ func buildWriter() zerolog.LevelWriter {
 		Out:        os.Stdout,
 		TimeFormat: time.Stamp,
 	})
-}
-
-func toZeroLevel(level Level) zerolog.Level {
-	switch level {
-	case Debug:
-		return zerolog.DebugLevel
-	case Warning:
-		return zerolog.WarnLevel
-	case Error:
-		return zerolog.ErrorLevel
-	case Information:
-		fallthrough
-	default:
-		return zerolog.InfoLevel
-	}
 }

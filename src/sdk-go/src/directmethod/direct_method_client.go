@@ -44,7 +44,7 @@ type DirectMethodsReportedProperties struct {
 type DirectMethodClient struct {
 	moduleID                  string
 	directMethodHandlers      map[string]DirectMethodHandler
-	logger                    logger.ILogger
+	logger                    logger.Logger
 	mqttClient                *mqttclient.MQTTManager
 	containerPropertiesClient *containerproperties.ContainerPropertiesClient
 	subscription              *models.MqttSubscriptionModel
@@ -68,10 +68,10 @@ func GetInstance(moduleID string, handlers map[string]DirectMethodHandler) (*Dir
 		dmInstance = &DirectMethodClient{
 			moduleID:             moduleID,
 			directMethodHandlers: handlers,
-			logger:               logger.Default,
+			logger:               logger.New(),
 		}
 		for name := range handlers {
-			dmInstance.logger.Information(fmt.Sprintf("Registered handler for direct method: %s", name))
+			dmInstance.logger.Info().Msgf("Registered handler for direct method: %s", name)
 		}
 	})
 	return dmInstance, nil
@@ -79,7 +79,7 @@ func GetInstance(moduleID string, handlers map[string]DirectMethodHandler) (*Dir
 
 // Init initializes the MQTT connection, container properties client and
 // subscribes to the direct methods topic.
-func (d *DirectMethodClient) Init(config *models.MqttConfigModel, log logger.ILogger) error {
+func (d *DirectMethodClient) Init(config *models.MqttConfigModel, log logger.Logger) error {
 	if config == nil {
 		config = models.NewMqttConfigModel()
 	}
@@ -106,9 +106,9 @@ func (d *DirectMethodClient) Init(config *models.MqttConfigModel, log logger.ILo
 	}
 	d.containerPropertiesClient = cp
 
-	if log != nil {
-		d.logger = log
-	}
+	// if log != nil {
+	d.logger = log
+	// }
 
 	d.mqttClient.DirectMethodsAPI = &directMethodsAPI{
 		handlers: d.directMethodHandlers,
@@ -122,13 +122,13 @@ func (d *DirectMethodClient) Init(config *models.MqttConfigModel, log logger.ILo
 		return err
 	}
 
-	d.logger.Information("DirectMethodClient initialized")
+	d.logger.Info().Msg("DirectMethodClient initialized")
 	return nil
 }
 
 func (d *DirectMethodClient) subscribeToDirectMethods() {
 	topic := fmt.Sprintf("dm/%s/", d.moduleID)
-	d.logger.Information(fmt.Sprintf("Starting subscription to direct methods topic: %s", topic))
+	d.logger.Info().Msgf("Starting subscription to direct methods topic: %s", topic)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	d.cancel = cancel
@@ -143,8 +143,8 @@ func (d *DirectMethodClient) subscribeToDirectMethods() {
 			}
 			if !d.mqttClient.IsConnected() {
 				if retry == 1 {
-					d.logger.Warning(fmt.Sprintf(
-						"MQTT client is not connected. Waiting before subscribing to %s", topic))
+					d.logger.Warn().Msgf(
+						"MQTT client is not connected. Waiting before subscribing to %s", topic)
 				}
 				retry++
 				time.Sleep(5 * time.Second)
@@ -153,12 +153,12 @@ func (d *DirectMethodClient) subscribeToDirectMethods() {
 			sub, err := d.mqttClient.AddSubscription(topic, types.QoS1)
 			if err != nil || sub == nil {
 				retry++
-				d.logger.Warning(fmt.Sprintf("Failed to subscribe to %s. Retry %d: %v", topic, retry, err))
+				d.logger.Warn().Msgf("Failed to subscribe to %s. Retry %d: %v", topic, retry, err)
 				time.Sleep(5 * time.Second)
 				continue
 			}
 			d.subscription = sub
-			d.logger.Information(fmt.Sprintf("Successfully subscribed to %s", topic))
+			d.logger.Info().Msgf("Successfully subscribed to %s", topic)
 			return
 		}
 	}()
@@ -174,11 +174,11 @@ func (d *DirectMethodClient) reportDirectMethods() error {
 	}
 	reported := map[string]interface{}{"registeredMethods": names}
 	if err := d.containerPropertiesClient.UpdateReportedProperties(reported); err != nil {
-		d.logger.Error(fmt.Sprintf("Failed to report direct methods to IoT Hub: %v", err))
+		d.logger.Error().Msgf("Failed to report direct methods to IoT Hub: %v", err)
 		return err
 	}
-	d.logger.Information(fmt.Sprintf(
-		"Reported %d direct methods to IoT Hub: %s", len(names), strings.Join(names, ", ")))
+	d.logger.Info().Msgf(
+		"Reported %d direct methods to IoT Hub: %s", len(names), strings.Join(names, ", "))
 	return nil
 }
 
@@ -193,14 +193,14 @@ func (d *DirectMethodClient) Stop() {
 type directMethodsAPI struct {
 	handlers map[string]DirectMethodHandler
 	moduleID string
-	logger   logger.ILogger
+	logger   logger.Logger
 	mqtt     *mqttclient.MQTTManager
 }
 
 func (a *directMethodsAPI) HandleMessage(message *models.MqttMessage) {
 	go func() {
 		if err := a.process(message); err != nil {
-			a.logger.Error(fmt.Sprintf("Error processing direct method message: %v", err))
+			a.logger.Error().Msgf("Error processing direct method message: %v", err)
 		}
 	}()
 }
@@ -208,31 +208,31 @@ func (a *directMethodsAPI) HandleMessage(message *models.MqttMessage) {
 func (a *directMethodsAPI) process(message *models.MqttMessage) error {
 	parts := strings.Split(message.Topic, "/")
 	if len(parts) < 2 {
-		a.logger.Warning(fmt.Sprintf("Invalid direct method topic format: %s", message.Topic))
+		a.logger.Warn().Msgf("Invalid direct method topic format: %s", message.Topic)
 		return nil
 	}
 	if parts[1] != a.moduleID {
-		a.logger.Warning(fmt.Sprintf("Direct method invocation for different module: %s", parts[1]))
+		a.logger.Warn().Msgf("Direct method invocation for different module: %s", parts[1])
 		return nil
 	}
 
 	var dm DirectMethodMessage
 	if err := json.Unmarshal(message.Payload, &dm); err != nil {
-		a.logger.Warning("Failed to deserialize direct method message payload")
+		a.logger.Warn().Msg("Failed to deserialize direct method message payload")
 		return nil
 	}
 	if strings.TrimSpace(dm.MessageID) == "" {
-		a.logger.Warning("Direct method message is missing MessageId")
+		a.logger.Warn().Msg("Direct method message is missing MessageId")
 		return nil
 	}
 	if strings.TrimSpace(dm.MethodName) == "" {
-		a.logger.Warning("Direct method message is null or missing method name")
+		a.logger.Warn().Msg("Direct method message is null or missing method name")
 		return nil
 	}
 
 	handler, ok := a.handlers[dm.MethodName]
 	if !ok {
-		a.logger.Warning(fmt.Sprintf("No handler registered for direct method: %s", dm.MethodName))
+		a.logger.Warn().Msgf("No handler registered for direct method: %s", dm.MethodName)
 		a.publishResponse(dm.MessageID, DirectMethodResponse{
 			Status:  404,
 			Payload: map[string]string{"message": fmt.Sprintf("Method with name %q not found", dm.MethodName)},
@@ -243,7 +243,7 @@ func (a *directMethodsAPI) process(message *models.MqttMessage) error {
 	var methodPayload interface{}
 	if strings.TrimSpace(dm.Payload) != "" {
 		if err := json.Unmarshal([]byte(dm.Payload), &methodPayload); err != nil {
-			a.logger.Warning(fmt.Sprintf("Failed to parse direct method payload as JSON: %v", err))
+			a.logger.Warn().Msgf("Failed to parse direct method payload as JSON: %v", err)
 			a.publishResponse(dm.MessageID, DirectMethodResponse{
 				Status:  400,
 				Payload: map[string]string{"message": "Invalid JSON format"},
@@ -251,7 +251,7 @@ func (a *directMethodsAPI) process(message *models.MqttMessage) error {
 			return nil
 		}
 		if _, isObject := methodPayload.(map[string]interface{}); !isObject {
-			a.logger.Warning("Direct method payload is not a JSON object")
+			a.logger.Warn().Msg("Direct method payload is not a JSON object")
 			a.publishResponse(dm.MessageID, DirectMethodResponse{
 				Status:  400,
 				Payload: map[string]string{"message": "Payload must be a JSON object"},
@@ -262,7 +262,7 @@ func (a *directMethodsAPI) process(message *models.MqttMessage) error {
 
 	response, err := handler(methodPayload)
 	if err != nil {
-		a.logger.Error(fmt.Sprintf("Direct method %s handler error: %v", dm.MethodName, err))
+		a.logger.Error().Msgf("Direct method %s handler error: %v", dm.MethodName, err)
 		response = DirectMethodResponse{
 			Status:  500,
 			Payload: map[string]string{"message": err.Error()},
@@ -276,11 +276,11 @@ func (a *directMethodsAPI) publishResponse(messageID string, response DirectMeth
 	topic := fmt.Sprintf("dm/response/%s", messageID)
 	body, err := json.Marshal(response)
 	if err != nil {
-		a.logger.Error(fmt.Sprintf("Failed to serialize direct method response: %v", err))
+		a.logger.Error().Msgf("Failed to serialize direct method response: %v", err)
 		return
 	}
 	if err := a.mqtt.PublishMessage(topic, string(body), types.QoS1, false); err != nil {
-		a.logger.Error(fmt.Sprintf("Failed to publish direct method response for %s: %v", messageID, err))
+		a.logger.Error().Msgf("Failed to publish direct method response for %s: %v", messageID, err)
 	}
 }
 

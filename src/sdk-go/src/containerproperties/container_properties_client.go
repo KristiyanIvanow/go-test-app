@@ -23,7 +23,7 @@ type DesiredPropertiesHandler func(payload map[string]interface{})
 type ContainerPropertiesClient struct {
 	moduleID                 string
 	desiredPropertiesHandler DesiredPropertiesHandler
-	logger                   logger.ILogger
+	logger                   logger.Logger
 	mqttClient               *mqttclient.MQTTManager
 	subscription             *models.MqttSubscriptionModel
 	cancel                   context.CancelFunc
@@ -35,15 +35,15 @@ var (
 )
 
 // GetInstance returns the singleton ContainerPropertiesClient instance.
-func GetInstance(moduleID string, log logger.ILogger) (*ContainerPropertiesClient, error) {
+func GetInstance(moduleID string, log logger.Logger) (*ContainerPropertiesClient, error) {
 	if moduleID == "" {
 		return nil, fmt.Errorf("module ID cannot be null or empty")
 	}
 	cpOnce.Do(func() {
 		l := log
-		if l == nil {
-			l = logger.Default
-		}
+		// if l == nil {
+		// 	l = logger.Default
+		// }
 		cpInstance = &ContainerPropertiesClient{
 			moduleID:   moduleID,
 			logger:     l,
@@ -72,10 +72,10 @@ func (c *ContainerPropertiesClient) UpdateReportedProperties(reported map[string
 	}
 	topic := fmt.Sprintf("properties/reported/%s", c.moduleID)
 	if err := c.mqttClient.PublishMessage(topic, string(payload), types.QoS1, false); err != nil {
-		c.logger.Error(fmt.Sprintf("Failed to update reported properties: %v", err))
+		c.logger.Error().Msgf("Failed to update reported properties: %v", err)
 		return err
 	}
-	c.logger.Debug(fmt.Sprintf("Published reported properties to %s", topic))
+	c.logger.Debug().Msgf("Published reported properties to %s", topic)
 	return nil
 }
 
@@ -86,14 +86,14 @@ func (c *ContainerPropertiesClient) SetDesiredPropertyUpdateCallback(handler Des
 	}
 	c.desiredPropertiesHandler = handler
 	c.mqttClient.DesiredPropertiesAPI = &desiredPropertiesAPI{handler: handler, log: c.logger}
-	c.logger.Information("Desired properties handler registered")
+	c.logger.Info().Msg("Desired properties handler registered")
 	c.subscribeToDesiredProperties()
 	return nil
 }
 
 func (c *ContainerPropertiesClient) subscribeToDesiredProperties() {
 	topic := fmt.Sprintf("properties/desired/%s/", c.moduleID)
-	c.logger.Information(fmt.Sprintf("Starting subscription to desired properties topic: %s", topic))
+	c.logger.Info().Msgf("Starting subscription to desired properties topic: %s", topic)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
@@ -108,8 +108,8 @@ func (c *ContainerPropertiesClient) subscribeToDesiredProperties() {
 			}
 			if !c.mqttClient.IsConnected() {
 				if retry == 1 {
-					c.logger.Warning(fmt.Sprintf(
-						"MQTT client is not connected. Waiting before subscribing to %s", topic))
+					c.logger.Warn().Msgf(
+						"MQTT client is not connected. Waiting before subscribing to %s", topic)
 				}
 				retry++
 				time.Sleep(5 * time.Second)
@@ -118,12 +118,12 @@ func (c *ContainerPropertiesClient) subscribeToDesiredProperties() {
 			sub, err := c.mqttClient.AddSubscription(topic, types.QoS1)
 			if err != nil || sub == nil {
 				retry++
-				c.logger.Warning(fmt.Sprintf("Failed to subscribe to %s. Retry %d: %v", topic, retry, err))
+				c.logger.Warn().Msgf("Failed to subscribe to %s. Retry %d: %v", topic, retry, err)
 				time.Sleep(5 * time.Second)
 				continue
 			}
 			c.subscription = sub
-			c.logger.Information(fmt.Sprintf("Successfully subscribed to %s", topic))
+			c.logger.Info().Msgf("Successfully subscribed to %s", topic)
 			return
 		}
 	}()
@@ -139,13 +139,13 @@ func (c *ContainerPropertiesClient) Stop() {
 // desiredPropertiesAPI implements mqttapi.MqttAPI for desired properties.
 type desiredPropertiesAPI struct {
 	handler DesiredPropertiesHandler
-	log     logger.ILogger
+	log     logger.Logger
 }
 
 func (d *desiredPropertiesAPI) HandleMessage(message *models.MqttMessage) {
 	var payload map[string]interface{}
 	if err := json.Unmarshal(message.Payload, &payload); err != nil {
-		d.log.Error(fmt.Sprintf("Error processing desired properties message: %v", err))
+		d.log.Error().Msgf("Error processing desired properties message: %v", err)
 		return
 	}
 	if d.handler != nil {
