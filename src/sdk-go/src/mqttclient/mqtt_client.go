@@ -97,6 +97,7 @@ func (m *MQTTManager) Init(config *models.MqttConfigModel, containerID string) e
 		m.logger.Warn().Msgf(
 			"The given containerId %q violates the MQTT containerID guidelines.", containerID)
 	}
+	m.logger.Info().Msgf("1111111111111112, Initializing MQTT client for container ID: %s", containerID)
 
 	m.mu.Lock()
 	m.Config = config
@@ -310,12 +311,14 @@ func (m *MQTTManager) GetReceivedTopicsList() []string {
 // -- internals --------------------------------------------------------------
 
 func (m *MQTTManager) connectToFirstAvailableBroker() error {
+	m.logger.Info().Msg("Starting MQTT connection initialization")
 	m.mu.Lock()
 	uris := append([]string(nil), m.Config.ServerURIs...)
 	m.mu.Unlock()
 
 	var lastErr error
 	for _, uri := range uris {
+		m.logger.Info().Msgf("Attempting to connect to MQTT broker at %s", uri)
 		protocol, host, port := parseServerURI(uri)
 		m.mu.Lock()
 		m.currentURI = host
