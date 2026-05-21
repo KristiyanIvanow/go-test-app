@@ -89,6 +89,10 @@ func (m *MQTTManager) SetLogger(l logger.Logger) {
 // Init initializes the MQTT client with the supplied config and container id.
 // It blocks until the first connection attempt has completed (success or
 // failure to all configured brokers).
+// Init is idempotent: if the client is already connected it returns nil
+// immediately, preventing duplicate broker connections when multiple SDK
+// components (e.g. DirectMethodClient and ContainerPropertiesClient) each
+// call Init with the same shared singleton.
 func (m *MQTTManager) Init(config *models.MqttConfigModel, containerID string) error {
 	if config == nil {
 		return fmt.Errorf("MQTT config is nil")
@@ -97,9 +101,14 @@ func (m *MQTTManager) Init(config *models.MqttConfigModel, containerID string) e
 		m.logger.Warn().Msgf(
 			"The given containerId %q violates the MQTT containerID guidelines.", containerID)
 	}
-	m.logger.Info().Msgf("1111111111111112, Initializing MQTT client for container ID: %s", containerID)
 
 	m.mu.Lock()
+	alreadyConnected := m.mqttClient != nil && m.mqttClient.IsConnected()
+	if alreadyConnected {
+		m.mu.Unlock()
+		m.logger.Debug().Msg("MQTT client already connected, skipping re-initialization")
+		return nil
+	}
 	m.Config = config
 	m.containerID = containerID
 	if len(m.Config.ServerURIs) == 0 {

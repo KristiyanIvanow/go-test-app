@@ -54,7 +54,14 @@ func GetInstance(moduleID string, log logger.Logger) (*ContainerPropertiesClient
 }
 
 // Init initializes the underlying MQTT client.
+// If the MQTT client is already connected (e.g. because DirectMethodClient
+// initialized it first), this is a no-op – calling Init twice on the shared
+// singleton would open a second connection with the same client ID and cause
+// the broker to kick one of the sessions.
 func (c *ContainerPropertiesClient) Init(config *models.MqttConfigModel) error {
+	if c.mqttClient.IsConnected() {
+		return nil
+	}
 	if config == nil {
 		config = models.NewMqttConfigModel()
 	}
